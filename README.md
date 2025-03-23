@@ -15,31 +15,37 @@ git clone --recursive https://github.com/xiaofan4122/YF-LIO-Dependence.git
 
 ## 安装
 
-以下命令均在YF-LIO-Dependence根目录下执行
+确保在ROS1环境下安装
 
 ### FW-mini-ros1
 
+以下命令均在YF-LIO-Dependence根目录下执行
 ```bash
-cd Fw-mini-ros1
+cd FW-mini-ros1
 catkin_make
 source devel/setup.bash
+cd ..
 ```
 
 如果之前安装过对应驱动包，下面的步骤可以跳过
 
 ### Livox-SDK2
-
+以下命令均在YF-LIO-Dependence根目录下执行
 ```bash
 cd Livox-SDK2
 mkdir build
 cd build
 cmake .. && make -j
 sudo make install
+cd ../..
 ```
 
 ### livox_ros_driver2
-
+以下命令均在YF-LIO-Dependence根目录下执行
 ```bash
 cd ws_livox/src/livox_ros_driver2
 ./build.sh ROS1
+cd ../..
+source devel/setup.bash
+cd ..
 ```
