@@ -27,7 +27,7 @@ source devel/setup.bash
 cd ..
 ```
 
-如果之前安装过对应驱动包，下面的步骤可以跳过
+**如果之前安装过对应驱动包，下面的步骤可以跳过**
 
 ### Livox-SDK2
 以下命令均在YF-LIO-Dependence根目录下执行
