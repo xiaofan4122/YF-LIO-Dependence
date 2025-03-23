@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project(yhs_can_msgs)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
+add_compile_options(-std=c++17)
 
 
 find_package(catkin REQUIRED COMPONENTS
@@ -30,6 +30,7 @@ find_package(catkin REQUIRED COMPONENTS
    rr_wheel_fb.msg
    steering_ctrl_cmd.msg
    steering_ctrl_fb.msg
+   wheel_info.msg
  )
 
 

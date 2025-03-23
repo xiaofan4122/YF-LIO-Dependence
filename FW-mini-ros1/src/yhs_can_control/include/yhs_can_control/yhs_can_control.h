@@ -22,6 +22,7 @@
 #include "yhs_can_msgs/steering_ctrl_fb.h"
 #include "yhs_can_msgs/front_angle_fb.h"
 #include "yhs_can_msgs/rear_angle_fb.h"
+#include "yhs_can_msgs/wheel_info.h"
 
 #include <net/if.h>
 #include <sys/ioctl.h>
@@ -64,6 +65,7 @@ namespace yhs_tool
     ros::Publisher steering_ctrl_fb_pub_;
     ros::Publisher front_angle_fb_pub_;
     ros::Publisher rear_angle_fb_pub_;
+    ros::Publisher wheel_info_pub_;
 
     ros::Subscriber ctrl_cmd_sub_;
     ros::Subscriber io_cmd_sub_;
@@ -74,6 +76,12 @@ namespace yhs_tool
     unsigned char sendData_u_io_[8];
     unsigned char sendData_u_vel_[8];
 
+    std::unordered_map<std::string, float> queue_;
+    double timeout_ ;
+    ros::Time last_time_;
+    ros::Time last_publish_time_;
+    int publish_count_ = 0;
+
     int dev_handler_;
     can_frame send_frames_;
     can_frame recv_frames_;
@@ -81,6 +89,10 @@ namespace yhs_tool
     void io_cmdCallBack(const yhs_can_msgs::io_cmd msg);
     void ctrl_cmdCallBack(const yhs_can_msgs::ctrl_cmd msg);
     void steering_ctrl_cmdCallBack(const yhs_can_msgs::steering_ctrl_cmd msg);
+
+    bool checkTime();
+    bool allMessagesReceived();
+    void publishWheelInfo();
 
     void recvData();
     void sendData();

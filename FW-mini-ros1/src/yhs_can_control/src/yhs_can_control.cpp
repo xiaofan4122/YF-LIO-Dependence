@@ -4,6 +4,8 @@
 #include <sys/stat.h>
 #include <pthread.h>
 #include <time.h>
+#include <queue>
+#include <unordered_map>
 
 #include <boost/bind.hpp>
 #include <boost/thread.hpp>
@@ -16,6 +18,20 @@ namespace yhs_tool
   CanControl::CanControl()
   {
     ros::NodeHandle private_node("~");
+    // 初始化队列
+    queue_ = {
+      {"front_angle_fb_l", 0.0f},
+      {"front_angle_fb_r", 0.0f},
+      {"rear_angle_fb_l", 0.0f},
+      {"rear_angle_fb_r", 0.0f},
+      {"lf_wheel_fb_velocity", 0.0f},
+      {"lr_wheel_fb_velocity", 0.0f},
+      {"rf_wheel_fb_velocity", 0.0f},
+      {"rr_wheel_fb_velocity", 0.0f}
+    };
+    // 初始化动态超时时间
+    timeout_ = 0.005; // 默认超时时间 5ms
+    last_time_ = ros::Time::now();
   }
 
   CanControl::~CanControl()
@@ -258,6 +274,11 @@ namespace yhs_tool
 
           unsigned char crc = recv_frames_.data[0] ^ recv_frames_.data[1] ^ recv_frames_.data[2] ^ recv_frames_.data[3] ^ recv_frames_.data[4] ^ recv_frames_.data[5] ^ recv_frames_.data[6];
 
+          checkTime();
+          queue_["lf_wheel_fb_velocity"] = msg.lf_wheel_fb_velocity;
+          // 如果所有消息都已接收且在超时时间内
+          if (allMessagesReceived())publishWheelInfo();
+
           if (crc == recv_frames_.data[7])
           {
 
@@ -276,6 +297,11 @@ namespace yhs_tool
           msg.lr_wheel_fb_pulse = (int)(recv_frames_.data[5] << 24 | recv_frames_.data[4] << 16 | recv_frames_.data[3] << 8 | recv_frames_.data[2]);
 
           unsigned char crc = recv_frames_.data[0] ^ recv_frames_.data[1] ^ recv_frames_.data[2] ^ recv_frames_.data[3] ^ recv_frames_.data[4] ^ recv_frames_.data[5] ^ recv_frames_.data[6];
+
+          checkTime();
+          queue_["lr_wheel_fb_velocity"] = msg.lr_wheel_fb_velocity;
+          // 如果所有消息都已接收且在超时时间内
+          if (allMessagesReceived())publishWheelInfo();
 
           if (crc == recv_frames_.data[7])
           {
@@ -296,6 +322,11 @@ namespace yhs_tool
 
           unsigned char crc = recv_frames_.data[0] ^ recv_frames_.data[1] ^ recv_frames_.data[2] ^ recv_frames_.data[3] ^ recv_frames_.data[4] ^ recv_frames_.data[5] ^ recv_frames_.data[6];
 
+          checkTime();
+          queue_["rr_wheel_fb_velocity"] = msg.rr_wheel_fb_velocity;
+          // 如果所有消息都已接收且在超时时间内
+          if (allMessagesReceived())publishWheelInfo();
+
           if (crc == recv_frames_.data[7])
           {
 
@@ -314,6 +345,11 @@ namespace yhs_tool
           msg.rf_wheel_fb_pulse = (int)(recv_frames_.data[5] << 24 | recv_frames_.data[4] << 16 | recv_frames_.data[3] << 8 | recv_frames_.data[2]);
 
           unsigned char crc = recv_frames_.data[0] ^ recv_frames_.data[1] ^ recv_frames_.data[2] ^ recv_frames_.data[3] ^ recv_frames_.data[4] ^ recv_frames_.data[5] ^ recv_frames_.data[6];
+
+          checkTime();
+          queue_["rf_wheel_fb_velocity"] = msg.rf_wheel_fb_velocity;
+          // 如果所有消息都已接收且在超时时间内
+          if (allMessagesReceived())publishWheelInfo();
 
           if (crc == recv_frames_.data[7])
           {
@@ -466,6 +502,12 @@ namespace yhs_tool
 
           unsigned char crc = recv_frames_.data[0] ^ recv_frames_.data[1] ^ recv_frames_.data[2] ^ recv_frames_.data[3] ^ recv_frames_.data[4] ^ recv_frames_.data[5] ^ recv_frames_.data[6];
 
+          checkTime();
+          queue_["front_angle_fb_l"] = msg.front_angle_fb_l;
+          queue_["front_angle_fb_r"] = msg.front_angle_fb_r;
+          // 如果所有消息都已接收且在超时时间内
+          if (allMessagesReceived())publishWheelInfo();
+
           if (crc == recv_frames_.data[7])
           {
 
@@ -484,6 +526,12 @@ namespace yhs_tool
           msg.rear_angle_fb_r = (float)((short)(recv_frames_.data[3] << 8 | recv_frames_.data[2])) / 100;
 
           unsigned char crc = recv_frames_.data[0] ^ recv_frames_.data[1] ^ recv_frames_.data[2] ^ recv_frames_.data[3] ^ recv_frames_.data[4] ^ recv_frames_.data[5] ^ recv_frames_.data[6];
+
+          checkTime();
+          queue_["rear_angle_fb_l"] = msg.rear_angle_fb_l;
+          queue_["rear_angle_fb_r"] = msg.rear_angle_fb_r;
+          // 如果所有消息都已接收且在超时时间内
+          if (allMessagesReceived())publishWheelInfo();
 
           if (crc == recv_frames_.data[7])
           {
@@ -613,10 +661,70 @@ namespace yhs_tool
     }
   }
 
+  // 超时则清空队列
+  bool CanControl::checkTime()
+  {
+    bool flag = true;
+    ros::Time current_time = ros::Time::now();
+    if ((current_time - last_time_).toSec() > timeout_)
+    {
+        // 超时，清空队列
+        for (auto& pair : queue_)
+        {
+            pair.second = 0.0f;
+        }
+      flag = false;
+    }
+    last_time_ = current_time;
+    return flag;
+  }
+
+  bool CanControl::allMessagesReceived()
+  {
+      return queue_["front_angle_fb_l"] != 0.0f &&
+             queue_["front_angle_fb_r"] != 0.0f &&
+             queue_["rear_angle_fb_l"] != 0.0f &&
+             queue_["rear_angle_fb_r"] != 0.0f &&
+             queue_["lf_wheel_fb_velocity"] != 0.0f &&
+             queue_["lr_wheel_fb_velocity"] != 0.0f &&
+             queue_["rf_wheel_fb_velocity"] != 0.0f &&
+             queue_["rr_wheel_fb_velocity"] != 0.0f;
+  }
+
+  void CanControl::publishWheelInfo()
+  {
+      yhs_can_msgs::wheel_info wheel_info_msg;
+
+      wheel_info_msg.front_angle_fb_l = queue_["front_angle_fb_l"];
+      wheel_info_msg.front_angle_fb_r = queue_["front_angle_fb_r"];
+      wheel_info_msg.rear_angle_fb_l = queue_["rear_angle_fb_l"];
+      wheel_info_msg.rear_angle_fb_r = queue_["rear_angle_fb_r"];
+      wheel_info_msg.lf_wheel_fb_velocity = queue_["lf_wheel_fb_velocity"];
+      wheel_info_msg.lr_wheel_fb_velocity = queue_["lr_wheel_fb_velocity"];
+      wheel_info_msg.rf_wheel_fb_velocity = queue_["rf_wheel_fb_velocity"];
+      wheel_info_msg.rr_wheel_fb_velocity = queue_["rr_wheel_fb_velocity"];
+      wheel_info_msg.header.stamp = ros::Time::now();
+
+      wheel_info_pub_.publish(wheel_info_msg);
+
+      // 更新发送频率计数器
+      publish_count_++;
+      if (publish_count_ % 75 == 0)
+      {
+          ros::Time current_time = ros::Time::now();
+          double frequency = publish_count_ / (current_time - last_publish_time_).toSec();
+          ROS_INFO_STREAM("Publishing frequency: " << frequency << " Hz");
+          last_publish_time_ = current_time;
+          publish_count_ = 0; // 重置计数器
+      }
+    }
+
+
   //数据发送线程
   void CanControl::sendData()
   {
     ros::Rate loop(100);
+
 
     while (ros::ok())
     {
@@ -641,6 +749,7 @@ namespace yhs_tool
     steering_ctrl_fb_pub_ = nh_.advertise<yhs_can_msgs::steering_ctrl_fb>("steering_ctrl_fb", 5);
     front_angle_fb_pub_ = nh_.advertise<yhs_can_msgs::front_angle_fb>("front_angle_fb", 5);
     rear_angle_fb_pub_ = nh_.advertise<yhs_can_msgs::rear_angle_fb>("rear_angle_fb", 5);
+    wheel_info_pub_ = nh_.advertise<yhs_can_msgs::wheel_info>("wheel_info", 5);
 
     //打开设备
     dev_handler_ = socket(PF_CAN, SOCK_RAW, CAN_RAW);
@@ -656,7 +765,7 @@ namespace yhs_tool
 
     struct ifreq ifr;
 
-    std::string can_name("can0");
+    std::string can_name("can2");
 
     strcpy(ifr.ifr_name, can_name.c_str());
 
